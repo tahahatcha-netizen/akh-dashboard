@@ -1,0 +1,186 @@
+<<<<<<< HEAD
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AKH Digital Twin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+=======
+import { useState, useMemo } from 'react'
+import type { AKHData, FloorStat } from '../types'
+import { BUILDINGS_ALL, FLOOR_LABEL, KATEGORIE_COLORS, DEPT_COLORS } from '../constants'
+
+interface Props { data: AKHData }
+
+type ColorMode = 'kategorie' | 'fachbereich' | 'raumart'
+
+const KATEGORIE_LIST = ['Klinik','Patient','Verkehrsfläche','Verwaltung','Technikfläche/Logistik/Infrastruktur']
+const DEPT_LIST = ['AKH','Psychiatrie','Gynäkologie','Kardiologie','ZOP','ITS','Herzchirurgie','Neurologie','ZNA','Pflege']
+const RAUMART_COLORS: Record<string, string> = {
+  'Patientenzimmer': '#0F6E56','Büro': '#534AB7','Flure': '#888780',
+  'WC / Sanitär': '#378ADD','OP-Nebenräume': '#E24B4A','Intensiv': '#D85A30',
+  'Nebenräume': '#5F5E5A','Dienst-/Stationsräume': '#BA7517',
+}
+const RAUMART_LIST = Object.keys(RAUMART_COLORS)
+
+export default function PageBIM({ data }: Props) {
+  const [building, setBuilding] = useState('A')
+  const [floor, setFloor] = useState('0')
+  const [colorMode, setColorMode] = useState<ColorMode>('kategorie')
+  const [selectedCell, setSelectedCell] = useState<{ idx: number; cat: string; area: number } | null>(null)
+
+  const floorData: Record<string, Record<string, FloorStat>> = useMemo(() => {
+    const m: Record<string, Record<string, FloorStat>> = {}
+    data.floors.forEach(f => {
+      if (!m[f.gebaeude]) m[f.gebaeude] = {}
+      m[f.gebaeude][String(f.etage)] = f
+    })
+    return m
+  }, [data.floors])
+
+  const currentFloor = floorData[building]?.[floor]
+  const roomCount = currentFloor?.rooms ?? 20
+  const totalArea = currentFloor?.area ?? 0
+  const floorLabel = FLOOR_LABEL[floor] ?? floor
+
+  const availableFloors = Object.keys(floorData[building] ?? {}).sort((a, b) => Number(a) - Number(b))
+
+  const cells = useMemo(() => {
+    const list: Array<{ color: string; cat: string; area: number }> = []
+    for (let i = 0; i < Math.min(roomCount, 80); i++) {
+      let cat: string; let color: string
+      if (colorMode === 'kategorie') {
+        cat = KATEGORIE_LIST[i % KATEGORIE_LIST.length]
+        color = KATEGORIE_COLORS[cat] ?? '#888780'
+      } else if (colorMode === 'fachbereich') {
+        cat = DEPT_LIST[i % DEPT_LIST.length]
+        color = DEPT_COLORS[cat] ?? '#888780'
+      } else {
+        cat = RAUMART_LIST[i % RAUMART_LIST.length]
+        color = RAUMART_COLORS[cat] ?? '#888780'
+      }
+      list.push({ color, cat, area: parseFloat((8 + (i % 7) * 6).toFixed(1)) })
+    }
+    return list
+  }, [roomCount, colorMode])
+
+  const legendMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    cells.forEach(c => { m[c.cat] = c.color })
+    return m
+  }, [cells])
+
+  const cols = Math.min(Math.ceil(Math.sqrt(cells.length)), 10)
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Controls */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="panel">
+          <div className="panel-title">Gebäude</div>
+          <div className="flex flex-wrap gap-1.5">
+            {BUILDINGS_ALL.map(g => (
+              <button key={g} className={`floor-btn ${g === building ? 'active' : ''}`}
+                onClick={() => { setBuilding(g); setFloor('0') }}>
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-title">Etage</div>
+          <div className="flex flex-wrap gap-1.5">
+            {availableFloors.map(f => (
+              <button key={f} className={`floor-btn ${f === floor ? 'active' : ''}`}
+                onClick={() => setFloor(f)}>
+                {FLOOR_LABEL[f] ?? f}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-title">Farbkodierung</div>
+          <select
+            value={colorMode}
+            onChange={e => setColorMode(e.target.value as ColorMode)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 mb-2"
+          >
+            <option value="kategorie">Kategorie</option>
+            <option value="fachbereich">Fachbereich</option>
+            <option value="raumart">Raumart</option>
+          </select>
+          <div className="flex flex-col gap-1">
+            {Object.entries(legendMap).slice(0, 7).map(([k, c]) => (
+              <div key={k} className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c }} />
+                <span className="text-xs text-slate-400 truncate">{k}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* BIM View */}
+      <div className="panel flex gap-4">
+        <div className="flex-1">
+          <div className="text-xs text-slate-400 mb-2 font-medium">
+            Gebäude {building} · {floorLabel} — {roomCount} Räume
+          </div>
+          <div
+            className="rounded-lg p-3 bg-slate-950"
+            style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }}
+          >
+            {cells.map((cell, i) => (
+              <div
+                key={i}
+                className={`rounded cursor-pointer transition-all hover:opacity-70 hover:scale-110 ${selectedCell?.idx === i ? 'ring-2 ring-white' : ''}`}
+                style={{ background: cell.color, aspectRatio: '1', opacity: 0.85 }}
+                title={`${cell.cat} · ${cell.area} m²`}
+                onClick={() => setSelectedCell({ idx: i, cat: cell.cat, area: cell.area })}
+              />
+            ))}
+          </div>
+          {roomCount > 80 && (
+            <div className="text-xs text-slate-600 mt-2 text-center">
+              Zeige 80 von {roomCount} Räumen
+            </div>
+          )}
+        </div>
+
+        {/* Detail panel */}
+        <div className="w-44 flex-shrink-0">
+          <div className="text-xs font-medium text-slate-400 mb-2">Etagen-KPIs</div>
+          <div className="stat-row"><span className="text-slate-500">Räume</span><strong>{roomCount}</strong></div>
+          <div className="stat-row"><span className="text-slate-500">Fläche</span><strong>{totalArea > 0 ? `${totalArea.toLocaleString('de-DE')} m²` : '— m²'}</strong></div>
+          <div className="stat-row"><span className="text-slate-500">Ø je Raum</span><strong>{totalArea > 0 && roomCount > 0 ? `${(totalArea / roomCount).toFixed(1)} m²` : '— m²'}</strong></div>
+
+          {selectedCell && (
+            <>
+              <div className="text-xs font-medium text-slate-400 mt-4 mb-2">Ausgewählter Raum</div>
+              <div className="stat-row"><span className="text-slate-500">Index</span><strong>{building}-{floor}-{String(selectedCell.idx + 1).padStart(3, '0')}</strong></div>
+              <div className="stat-row"><span className="text-slate-500">Typ</span><strong className="text-right text-xs">{selectedCell.cat}</strong></div>
+              <div className="stat-row"><span className="text-slate-500">Fläche ~</span><strong>{selectedCell.area} m²</strong></div>
+            </>
+          )}
+
+          {building === 'D' && (
+            <div className="mt-3 text-xs text-amber-400 bg-amber-950 rounded-lg p-2">
+              ⚠ Haus D: Flächendaten fehlen in der Quelle (0 m² gesamt)
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+>>>>>>> 9e6ed5d46f0512452dcf9b5494f5727ea06e6af2

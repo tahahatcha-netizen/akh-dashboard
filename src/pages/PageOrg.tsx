@@ -1,0 +1,126 @@
+import { useState } from 'react'
+import ReactECharts from 'echarts-for-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ORG_DOMAINS } from '../constants'
+import type { AKHData } from '../types'
+
+interface Props { data: AKHData }
+
+export default function PageOrg({ data: _data }: Props) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ 'Kliniken': true })
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const total = ORG_DOMAINS.reduce((s, d) => s + d.area, 0)
+
+  const treemapOption = {
+    tooltip: {
+      formatter: (p: { name: string; value: number }) =>
+        `${p.name}: ${p.value.toLocaleString('de-DE')} m²`,
+    },
+    series: [{
+      type: 'treemap' as const,
+      width: '100%',
+      height: '100%',
+      data: ORG_DOMAINS.map(d => ({
+        name: d.shortLabel,
+        value: d.area,
+        itemStyle: { color: d.color },
+      })),
+      label: { show: true, fontSize: 11, color: '#fff', fontWeight: '500' },
+      breadcrumb: { show: false },
+    }],
+    backgroundColor: 'transparent',
+  }
+
+  const donutOption = {
+    tooltip: { trigger: 'item' as const, formatter: '{b}: {c} m² ({d}%)' },
+    legend: { show: false },
+    series: [{
+      type: 'pie' as const,
+      radius: ['45%', '72%'],
+      data: ORG_DOMAINS.map(d => ({
+        name: d.shortLabel,
+        value: d.area,
+        itemStyle: { color: d.color },
+      })),
+      label: {
+        show: true, fontSize: 10, color: '#94a3b8',
+        formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
+      },
+    }],
+    backgroundColor: 'transparent',
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {/* Left: Org tree */}
+      <div className="panel overflow-y-auto" style={{ maxHeight: 680 }}>
+        <div className="panel-title">🏗 Organisationshierarchie</div>
+        <div className="flex flex-col gap-2">
+          {ORG_DOMAINS.map(dom => {
+            const isOpen = expanded[dom.shortLabel]
+            const share = ((dom.area / total) * 100).toFixed(1)
+            return (
+              <div key={dom.label} className="flex flex-col gap-1">
+                <button
+                  className="org-header w-full text-left"
+                  style={{ background: dom.color + '1a', borderLeft: `2px solid ${dom.color}`, borderRadius: '0 8px 8px 0' }}
+                  onClick={() => setExpanded(e => ({ ...e, [dom.shortLabel]: !e[dom.shortLabel] }))}
+                >
+                  <span className="text-slate-200">{dom.label}</span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-slate-400">{dom.area.toLocaleString('de-DE')} m²</span>
+                    <span className="text-slate-500">{share}%</span>
+                    {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="flex flex-col gap-0.5">
+                    {dom.groups.map(g => (
+                      <button
+                        key={g}
+                        className={`org-child w-full text-left ${selectedGroup === g ? 'selected' : ''}`}
+                        onClick={() => setSelectedGroup(selectedGroup === g ? null : g)}
+                      >
+                        <span>{g}</span>
+                        <span className="text-slate-600">
+                          {Math.round(dom.area / dom.groups.length / 100) * 100} m²
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Right: Charts */}
+      <div className="flex flex-col gap-3">
+        <div className="panel">
+          <div className="panel-title">🗺 Treemap — Fläche je Domäne</div>
+          <ReactECharts option={treemapOption} style={{ height: 210 }} />
+        </div>
+        <div className="panel">
+          <div className="panel-title">🍩 Domänen-Verteilung</div>
+          <ReactECharts option={donutOption} style={{ height: 210 }} />
+        </div>
+        <div className="panel">
+          <div className="panel-title">📊 Domänen-Übersicht</div>
+          {ORG_DOMAINS.map(d => (
+            <div key={d.label} className="stat-row">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-sm" style={{ background: d.color }} />
+                <span className="text-slate-300">{d.shortLabel}</span>
+              </div>
+              <div className="flex gap-3 text-slate-500">
+                <span>{d.area.toLocaleString('de-DE')} m²</span>
+                <span className="w-8 text-right">{((d.area / total) * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

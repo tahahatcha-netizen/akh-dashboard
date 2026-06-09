@@ -1,0 +1,65 @@
+import { LayoutGrid, Building2, GitFork, Layout, Stethoscope, DoorOpen, Database } from 'lucide-react'
+import type { PageId } from '../types'
+import { NAV_ITEMS } from '../constants'
+
+const ICONS: Record<string, React.ReactNode> = {
+  'grid':        <LayoutGrid size={15} />,
+  'building-2':  <Building2 size={15} />,
+  'git-fork':    <GitFork size={15} />,
+  'layout':      <Layout size={15} />,
+  'stethoscope': <Stethoscope size={15} />,
+  'door-open':   <DoorOpen size={15} />,
+  'database':    <Database size={15} />,
+}
+
+interface SidebarProps {
+  activePage: PageId
+  onNavigate: (id: PageId) => void
+}
+
+export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
+  const sections = [...new Set(NAV_ITEMS.map(n => n.section))]
+
+  return (
+    <aside className="w-52 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col overflow-hidden">
+      {/* Logo */}
+      <div className="px-4 py-3.5 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-akh-teal flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+            A
+          </div>
+          <div>
+            <div className="font-semibold text-white text-sm leading-none">AKH</div>
+            <div className="text-xs text-slate-500 mt-0.5">Digital Twin</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
+        {sections.map(section => (
+          <div key={section} className="mb-2">
+            <div className="px-3 py-1.5 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              {section}
+            </div>
+            {NAV_ITEMS.filter(n => n.section === section).map(item => (
+              <button
+                key={item.id}
+                className={`sidebar-item w-full ${activePage === item.id ? 'active' : ''}`}
+                onClick={() => onNavigate(item.id)}
+              >
+                {ICONS[item.icon]}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-slate-800 text-xs text-slate-600">
+        v1.0 · Albertinen Krankenhaus
+      </div>
+    </aside>
+  )
+}

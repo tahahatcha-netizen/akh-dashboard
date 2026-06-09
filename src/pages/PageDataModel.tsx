@@ -1,0 +1,123 @@
+import { AlertTriangle, AlertCircle, Info, Database } from 'lucide-react'
+
+const FACT = {
+  name: 'FactRooms',
+  color: '#1d9e75',
+  fields: ['RoomKey (PK)','BuildingKey (FK)','FloorKey (FK)','DeptKey (FK)',
+           'KSTKey (FK)','OrgKey (FK)','RoomTypeKey (FK)','AKH_m2','Raumbezeichnung','Raumnummer'],
+}
+
+const DIMS = [
+  { name: 'DimBuilding',     color: '#185FA5', fields: ['BuildingKey','Gebäude','Gebäudename'] },
+  { name: 'DimFloor',        color: '#378ADD', fields: ['FloorKey','Etage','Etage_Label','Gebäude'] },
+  { name: 'DimDepartment',   color: '#534AB7', fields: ['DeptKey','Fachbereich','Domäne','KST_Gruppe'] },
+  { name: 'DimKST',          color: '#BA7517', fields: ['KSTKey','KST','KST_Bez','KST_Gruppe','KST_Akt'] },
+  { name: 'DimOrganization', color: '#993556', fields: ['OrgKey','Gesellschaft','Domäne'] },
+  { name: 'DimRoomType',     color: '#5F5E5A', fields: ['RoomTypeKey','Kategorie','Raumart','Fußbodenbelag'] },
+]
+
+const QUALITY_ISSUES = [
+  { level: 'warn',  text: '2.730 Räume (80,9%) ohne KST Gruppe — kritisch für Org-Filter' },
+  { level: 'error', text: 'Haus D: 429 Räume mit 0 m² — Flächendaten vollständig fehlend' },
+  { level: 'warn',  text: '430 Räume (12,7%) ohne KST-Nummer' },
+  { level: 'error', text: 'NEU2, KST-Bez. NEU, Kostenstelle: 100% leer — Spalten entfernen' },
+  { level: 'info',  text: '"Nebenräume" doppelt in Raumart (Groß-/Kleinschreibung)' },
+  { level: 'info',  text: '614 Räume ohne Fußbodenbelag, 3.065 ohne Türschließungen' },
+]
+
+const DAX = [
+  { name: 'Total Area m²',       color: '#1d9e75', code: "SUM ( FactRooms[AKH_m2] )" },
+  { name: 'Rooms Count',         color: '#378ADD', code: "COUNTROWS ( FactRooms )" },
+  { name: 'Area per Room',       color: '#534AB7', code: "DIVIDE ( [Total Area m²], [Rooms Count] )" },
+  { name: 'Department Share %',  color: '#BA7517', code: "DIVIDE ( [Total Area m²],\n  CALCULATE ( [Total Area m²],\n    ALL ( DimDepartment ) ) )" },
+  { name: 'Building Share %',    color: '#185FA5', code: "DIVIDE ( [Total Area m²],\n  CALCULATE ( [Total Area m²],\n    ALL ( DimBuilding ) ) )" },
+  { name: 'Area by KST',         color: '#993556', code: "CALCULATE ( [Total Area m²],\n  ALLEXCEPT ( DimKST, DimKST[KST] ) )" },
+]
+
+const ICON_MAP = {
+  warn:  <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />,
+  error: <AlertCircle  size={13} className="text-red-400 mt-0.5 flex-shrink-0" />,
+  info:  <Info         size={13} className="text-blue-400 mt-0.5 flex-shrink-0" />,
+}
+
+export default function PageDataModel() {
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Star Schema */}
+      <div className="panel">
+        <div className="panel-title"><Database size={13} /> Star Schema — Power BI Datenmodell</div>
+        <div className="flex gap-4 flex-wrap">
+          {/* Fact */}
+          <div className="rounded-xl border-2 p-3 flex-shrink-0" style={{ borderColor: FACT.color, minWidth: 160 }}>
+            <div className="text-xs font-semibold mb-0.5" style={{ color: FACT.color }}>FACT TABLE</div>
+            <div className="font-semibold text-white mb-2">{FACT.name}</div>
+            {FACT.fields.map(f => (
+              <div key={f} className="text-xs text-slate-400 leading-5">{f}</div>
+            ))}
+          </div>
+          {/* Dims */}
+          <div className="flex-1 grid grid-cols-3 gap-2">
+            {DIMS.map(dim => (
+              <div key={dim.name} className="rounded-lg border border-slate-700 p-2.5 bg-slate-800">
+                <div className="text-xs font-medium mb-0.5" style={{ color: dim.color }}>DIM</div>
+                <div className="text-xs font-semibold text-white mb-1.5">{dim.name}</div>
+                {dim.fields.map(f => (
+                  <div key={f} className="text-xs text-slate-500 leading-5">{f}</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Data quality */}
+      <div className="panel">
+        <div className="panel-title">⚠ Datenqualitätsprobleme (vor Power BI-Implementierung beheben)</div>
+        <div className="grid grid-cols-2 gap-2">
+          {QUALITY_ISSUES.map((q, i) => (
+            <div key={i} className="flex gap-2 items-start bg-slate-800 rounded-lg px-3 py-2">
+              {ICON_MAP[q.level as keyof typeof ICON_MAP]}
+              <span className="text-xs text-slate-300">{q.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* DAX */}
+      <div className="panel">
+        <div className="panel-title">💡 Empfohlene DAX-Kennzahlen</div>
+        <div className="grid grid-cols-2 gap-2">
+          {DAX.map(d => (
+            <div key={d.name} className="bg-slate-800 rounded-lg p-3">
+              <div className="text-xs font-medium mb-1.5" style={{ color: d.color }}>{d.name}</div>
+              <pre className="text-xs text-slate-400 font-mono whitespace-pre-wrap leading-5">{d.code}</pre>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Power Query steps */}
+      <div className="panel">
+        <div className="panel-title">🔧 Power Query — Reinigungsschritte</div>
+        <ol className="flex flex-col gap-2">
+          {[
+            { n: 1, title: 'Leere Spalten entfernen', code: 'Table.RemoveColumns(Source, {"NEU2","KST-Bez. NEU","Kostenstelle"})' },
+            { n: 2, title: 'KST als Text formatieren', code: 'Table.TransformColumnTypes(#"Prev", {{"KST", type text}})' },
+            { n: 3, title: 'Raumart-Duplikate bereinigen', code: 'Table.ReplaceValue(#"Prev","nebenräume","Nebenräume",Replacer.ReplaceText,{"Raumart"})' },
+            { n: 4, title: 'KST Gruppe aus Org-Mapping befüllen', code: 'Table.Join(#"Prev","KST", OrgMapping,"KST", JoinKind.LeftOuter)' },
+            { n: 5, title: 'Domäne aus Fachbereich ableiten', code: 'Table.AddColumn(#"Prev","Domäne", each fnGetDomain([Fachbereich]))' },
+            { n: 6, title: 'Haus D Flächen prüfen', code: '// Haus D: 429 Räume mit 0 m² — Quelldaten prüfen' },
+          ].map(s => (
+            <li key={s.n} className="flex gap-3 items-start">
+              <span className="w-5 h-5 rounded-full bg-akh-teal text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</span>
+              <div>
+                <div className="text-xs font-medium text-slate-300 mb-0.5">{s.title}</div>
+                <code className="text-xs text-slate-500 font-mono">{s.code}</code>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  )
+}
